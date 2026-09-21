@@ -1,0 +1,13 @@
+{
+  "name": "notepad-widget",
+  "version": "1.0.0",
+  "description": "A floating, collapsible sticky-note style notepad that docks to the top-right of your screen.",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron ."
+  },
+  "devDependencies": {
+    "electron": "^32.0.0"
+  }
+}

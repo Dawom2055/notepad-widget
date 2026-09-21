@@ -1,0 +1,251 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>Notepad Widget</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="widget" id="widget" data-edge="right">
+    <button class="tab" id="tab" title="Click to open/close (Ctrl+Shift+N) · hover to peek · drag to move">
+      <span class="tab-icon">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4h6a2 2 0 0 1 2 2v13l-5-3-5 3V6a2 2 0 0 1 2-2Z"/></svg>
+      </span>
+      <span class="tab-label" id="tabLabel">NOTES</span>
+    </button>
+
+    <div class="panel">
+      <div class="app">
+        <nav class="sidebar" id="sidebar">
+          <div class="sidebar-header">
+            <span class="sidebar-header-icon">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="12" height="16" rx="2"/><path d="M9 4V3a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1"/><path d="M9 10h6M9 14h6M9 18h3"/></svg>
+            </span>
+            <span class="sidebar-header-title">Notes</span>
+            <button type="button" class="sidebar-collapse-icon" id="sidebarCollapseBtn" title="Collapse menu">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+            </button>
+          </div>
+
+          <div class="sidebar-nav">
+            <button class="nav-item active" data-view="today">
+              <span class="nav-icon">
+                <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M8 3v4M16 3v4M3.5 9.5h17"/></svg>
+              </span>
+              <span class="nav-label">Today</span>
+            </button>
+            <button class="nav-item" data-view="todos">
+              <span class="nav-icon">
+                <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1"/><path d="m9 13 2 2 4-4"/></svg>
+              </span>
+              <span class="nav-label">To-Do</span>
+            </button>
+            <button class="nav-item" data-view="projects">
+              <span class="nav-icon">
+                <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 6.5A1.5 1.5 0 0 1 5 5h4l2 2.5h8a1.5 1.5 0 0 1 1.5 1.5v9a1.5 1.5 0 0 1-1.5 1.5H5A1.5 1.5 0 0 1 3.5 18Z"/></svg>
+              </span>
+              <span class="nav-label">Projects</span>
+            </button>
+            <button class="nav-item" data-view="notes">
+              <span class="nav-icon">
+                <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="3.5" width="15" height="17" rx="2"/><path d="M8.5 8h7M8.5 12h7M8.5 16h4.5"/></svg>
+              </span>
+              <span class="nav-label">Quick Notes</span>
+            </button>
+          </div>
+
+          <div class="sidebar-footer">
+            <span class="sidebar-avatar" id="sidebarAvatar">N</span>
+            <span class="sidebar-footer-text">
+              <span class="sidebar-footer-name" id="sidebarUserName">Notes</span>
+              <span class="sidebar-footer-sub">Personal workspace</span>
+            </span>
+            <span class="sidebar-footer-more" aria-hidden="true">&#8943;</span>
+          </div>
+        </nav>
+
+        <div class="content">
+          <button class="close-btn" id="closeBtn" title="Collapse">&raquo;</button>
+
+          <section class="view" data-view="today" id="view-today">
+            <div class="today-header-row">
+              <div class="today-header-left">
+                <div class="date" id="todayDate"></div>
+                <h1 class="greeting" id="greeting">Good morning</h1>
+              </div>
+              <div class="today-header-right">
+                <button type="button" class="today-new-note-btn" id="todayNewNoteBtn" title="Create a new note">
+                  <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+                  New note
+                </button>
+              </div>
+            </div>
+
+            <div class="today-card">
+              <div class="today-section">
+                <div class="section-heading">
+                  <span class="dot" id="outstandingDot"></span>
+                  <span>Outstanding Items</span>
+                </div>
+                <ul class="checklist" id="outstandingList"></ul>
+                <div class="empty-hint hidden today-empty-row" id="outstandingEmpty">
+                  <span class="today-empty-icon">
+                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8.5 12.5 2.5 2.5 5-5"/></svg>
+                  </span>
+                  <span>All caught up — nothing outstanding.</span>
+                </div>
+              </div>
+
+              <div class="today-divider"></div>
+
+              <div class="today-section">
+                <div class="section-heading secondary">Notes Created Today</div>
+                <ul class="notes-created-list" id="notesCreatedList"></ul>
+                <div class="empty-hint hidden today-empty-row" id="notesCreatedEmpty">
+                  <span class="today-empty-icon">
+                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3h5l4 4v13a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z"/><path d="M13 3v4h4"/></svg>
+                  </span>
+                  <span>No notes created today yet.</span>
+                </div>
+                <button class="see-all-btn hidden" id="notesCreatedSeeAllBtn">See all</button>
+              </div>
+
+              <div class="today-divider"></div>
+
+              <div class="today-section">
+                <div class="section-heading secondary">Today's Rundown</div>
+                <div class="empty-hint today-empty-row" id="rundownEmpty">
+                  <span class="today-empty-icon">
+                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M8 3v4M16 3v4M3.5 9.5h17"/></svg>
+                  </span>
+                  <span>Nothing scheduled yet.</span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="view hidden" data-view="todos" id="view-todos">
+            <div id="todoMainView">
+              <div class="view-header-row">
+                <div class="view-header">To-Do</div>
+                <div class="view-toggle" id="todoViewToggle">
+                  <button type="button" class="view-toggle-btn active" data-todo-view="list">List</button>
+                  <button type="button" class="view-toggle-btn" data-todo-view="calendar">Calendar</button>
+                </div>
+              </div>
+
+              <div id="todoListView">
+                <ul class="checklist" id="todoList"></ul>
+                <div class="empty-hint hidden" id="todoEmpty">No tasks yet — add one below.</div>
+              </div>
+
+              <div id="todoCalendarView" class="hidden">
+                <div class="calendar-toolbar">
+                  <div class="calendar-nav">
+                    <button type="button" id="calendarPrevBtn" title="Previous">&lsaquo;</button>
+                    <button type="button" id="calendarTodayBtn" title="Jump to today">Today</button>
+                    <button type="button" id="calendarNextBtn" title="Next">&rsaquo;</button>
+                  </div>
+                  <div class="calendar-granularity" id="calendarGranularityToggle">
+                    <button type="button" class="granularity-btn active" data-granularity="month">Month</button>
+                    <button type="button" class="granularity-btn" data-granularity="week">Week</button>
+                    <button type="button" class="granularity-btn" data-granularity="day">Day</button>
+                  </div>
+                </div>
+                <div class="calendar-label" id="calendarLabel"></div>
+                <div id="calendarBody"></div>
+              </div>
+
+              <form class="add-row add-row-task" id="todoAddForm">
+                <input type="text" id="todoInput" placeholder="Add a task…" autocomplete="off" />
+                <div class="add-row-secondary">
+                  <input type="date" id="todoDueDate" class="due-date-input" title="Due date" />
+                  <input type="time" id="todoDueTime" class="due-time-input" title="Due time" />
+                  <button type="submit">Add</button>
+                </div>
+              </form>
+
+              <button type="button" class="view-completed-link" id="viewCompletedBtn">View Completed Tasks</button>
+            </div>
+
+            <div class="completed-tasks-view hidden" id="completedTasksView">
+              <button class="back-link" id="completedBackBtn">&lsaquo; Back</button>
+              <div class="view-header">Completed Tasks</div>
+              <ul class="checklist" id="completedList"></ul>
+              <div class="empty-hint hidden" id="completedEmpty">No completed tasks yet.</div>
+            </div>
+          </section>
+
+          <section class="view hidden" data-view="projects" id="view-projects">
+            <div class="view-title-row">
+              <button class="back-arrow hidden" id="noteBackBtn" title="Back" aria-label="Back">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+              </button>
+              <div class="view-header">Projects</div>
+            </div>
+            <div class="breadcrumbs" id="projectBreadcrumbs"></div>
+
+            <div id="projectBrowser">
+              <ul class="project-list" id="projectList"></ul>
+              <div class="empty-hint hidden" id="projectEmpty">Nothing here yet — add a folder or note below.</div>
+              <div class="add-row" id="projectAddRow">
+                <button type="button" class="add-node-btn" id="addFolderBtn" title="New folder">📁 New Folder</button>
+                <button type="button" class="add-node-btn" id="addNoteBtn" title="New note">📝 New Note</button>
+              </div>
+            </div>
+
+            <div class="note-editor hidden" id="projectNoteEditor">
+              <div class="note-editor-header-row">
+                <input type="text" class="note-title-input" id="noteEditorTitle" placeholder="Note title…" autocomplete="off" />
+              </div>
+              <div class="textarea-wrap">
+                <textarea id="projectNoteArea" placeholder="Type here… it saves automatically."></textarea>
+                <button class="transcribe-btn" id="transcribeProjectNoteBtn" title="Transcribe speech into this note">🎙️ Transcribe</button>
+                <button class="copy-btn" id="copyProjectNoteBtn" title="Copy all text">📋 Copy</button>
+              </div>
+            </div>
+          </section>
+
+          <section class="view hidden" data-view="notes" id="view-notes">
+            <div class="view-header-row">
+              <div class="view-header">Quick Notes</div>
+              <span id="status">saved</span>
+            </div>
+            <div class="textarea-wrap">
+              <textarea id="noteArea" placeholder="Type here… it saves automatically."></textarea>
+              <button class="transcribe-btn" id="transcribeNoteBtn" title="Transcribe speech into this note">🎙️ Transcribe</button>
+              <button class="copy-btn" id="copyNoteBtn" title="Copy all text">📋 Copy</button>
+            </div>
+            <div class="notes-footer">
+              <button class="save-folder-btn" id="saveToFolderBtn">💾 Save to Folder</button>
+              <span class="shortcut-hint">Ctrl/⌘+Shift+N to toggle</span>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <div class="modal-overlay hidden" id="saveToFolderModal">
+        <div class="modal-header">
+          <span>Save to Folder</span>
+          <button class="modal-close" id="saveModalCloseBtn" title="Cancel">&times;</button>
+        </div>
+        <div class="breadcrumbs" id="saveModalBreadcrumbs"></div>
+        <ul class="project-list" id="saveModalFolderList"></ul>
+        <div class="empty-hint hidden" id="saveModalEmpty">No sub-folders here yet.</div>
+
+        <div class="add-row" id="saveModalNewFolderRow">
+          <input type="text" id="saveModalNewFolderInput" placeholder="New folder here…" autocomplete="off" />
+          <button type="button" id="saveModalNewFolderBtn">📁 Create</button>
+        </div>
+
+        <div class="modal-footer">
+          <input type="text" id="saveModalNoteName" placeholder="Note name…" autocomplete="off" />
+          <button type="button" id="saveModalConfirmBtn">Save Here</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>

@@ -1,0 +1,6 @@
+node_modules/
+notes.json
+todos.json
+projects.json
+dock.json
+dist/

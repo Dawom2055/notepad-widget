@@ -1,0 +1,1796 @@
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  user-select: none;
+}
+
+/* The widget can be docked (dragged) to any of the four screen edges.
+   Left/right docks lay tab+panel out as a row; top/bottom docks lay them
+   out as a column, reshaping the window from 596x480 to 560x516 so the
+   36px tab is always the thin strip touching the edge, panel unchanged
+   internally either way. `data-edge` (set by main.js via IPC) drives all
+   of it -- see nearestEdgeAndFraction()/acrossEdgeOffset() in main.js. */
+.widget {
+  display: flex;
+  width: 596px; /* TAB_THICKNESS (36) + PANEL_WIDTH (560) */
+  height: 480px;
+}
+
+.widget[data-edge='right'] {
+  flex-direction: row;
+}
+
+.widget[data-edge='left'] {
+  flex-direction: row-reverse;
+}
+
+.widget[data-edge='top'],
+.widget[data-edge='bottom'] {
+  width: 560px;
+  height: 516px; /* PANEL_HEIGHT (480) + TAB_THICKNESS (36) */
+}
+
+.widget[data-edge='bottom'] {
+  flex-direction: column;
+}
+
+.widget[data-edge='top'] {
+  flex-direction: column-reverse;
+}
+
+/* When collapsed/peeking, main.js shrinks the real window to just the tab
+   (plus a peek reveal), and the window only ever shows the widget from its
+   own top-left corner. Right/bottom docks put the tab first in the flex
+   flow (top-left of the widget), so it's what's visible. Left/top docks put
+   the tab LAST (bottom-right of the widget, facing the screen center), so
+   anchor the widget to the window's far edge instead -- otherwise the
+   shrunken window shows only the cropped panel and the tab is off-screen. */
+.widget[data-edge='left'],
+.widget[data-edge='top'] {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+}
+
+/* --- the little handle that stays on-screen when collapsed, and doubles
+   as the drag handle for moving the whole widget. Dragging is implemented
+   entirely in JS (mousedown/mousemove/mouseup in renderer.js, relayed to
+   main.js) rather than via -webkit-app-region: drag -- that CSS property
+   turns out to swallow the plain click on release (Chromium hands the
+   press to native window-drag handling before its normal click synthesis
+   runs), which broke click-to-toggle entirely. Manual JS dragging keeps
+   both working, since we decide ourselves whether a press was a click or
+   a drag. --- */
+.tab {
+  border: none;
+  cursor: grab;
+  background: linear-gradient(180deg, #2a2a2e, #1c1c1f);
+  box-shadow: -2px 2px 10px rgba(0, 0, 0, 0.25);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  transition: background 0.15s ease;
+}
+
+.tab:hover {
+  background: linear-gradient(180deg, #3a3a40, #232327);
+}
+
+.tab:active {
+  cursor: grabbing;
+}
+
+.widget[data-edge='right'] .tab,
+.widget[data-edge='left'] .tab {
+  flex: 0 0 36px;
+  width: 36px;
+  height: 100%;
+  flex-direction: column;
+  justify-content: flex-start;
+  padding-top: 14px;
+}
+
+.widget[data-edge='top'] .tab,
+.widget[data-edge='bottom'] .tab {
+  flex: 0 0 36px;
+  width: 100%;
+  height: 36px;
+  flex-direction: row;
+  justify-content: center;
+}
+
+.widget[data-edge='right'] .tab {
+  border-radius: 10px 0 0 10px;
+}
+
+.widget[data-edge='left'] .tab {
+  border-radius: 0 10px 10px 0;
+  box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.25);
+}
+
+.widget[data-edge='bottom'] .tab {
+  border-radius: 10px 10px 0 0;
+  box-shadow: 2px -2px 10px rgba(0, 0, 0, 0.25);
+}
+
+.widget[data-edge='top'] .tab {
+  border-radius: 0 0 10px 10px;
+  box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.25);
+}
+
+.tab-icon {
+  font-size: 16px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tab-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: #e7e2d3;
+}
+
+.widget[data-edge='right'] .tab-label,
+.widget[data-edge='left'] .tab-label {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+}
+
+/* --- the actual note panel --- */
+.panel {
+  position: relative;
+  background: #ffffff;
+  box-shadow: -2px 2px 18px rgba(0, 0, 0, 0.22);
+  overflow: hidden;
+}
+
+.widget[data-edge='right'] .panel,
+.widget[data-edge='left'] .panel {
+  flex: 0 0 560px;
+  width: 560px;
+  height: 100%;
+}
+
+.widget[data-edge='top'] .panel,
+.widget[data-edge='bottom'] .panel {
+  flex: 0 0 480px;
+  width: 100%;
+  height: 480px;
+}
+
+.widget[data-edge='left'] .panel {
+  box-shadow: 2px 2px 18px rgba(0, 0, 0, 0.22);
+}
+
+.widget[data-edge='bottom'] .panel {
+  box-shadow: 2px -2px 18px rgba(0, 0, 0, 0.22);
+}
+
+.widget[data-edge='top'] .panel {
+  box-shadow: 2px 2px 18px rgba(0, 0, 0, 0.22);
+}
+
+.app {
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+  height: 100%;
+}
+
+/* --- sidebar --- */
+.sidebar {
+  flex: 0 0 176px;
+  width: 176px;
+  height: 100%;
+  background: #fafafa;
+  border-right: 1px solid #e8e8e8;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: flex-basis 0.15s ease, width 0.15s ease;
+}
+
+/* Icon-only mode: nav labels, the sidebar title, and the footer's name/sub
+   text all hide, leaving just the four nav icons (still fully clickable --
+   this only ever hides their labels, the buttons and their click handlers
+   are untouched) plus the avatar, so the content area gets the extra room. */
+.sidebar.collapsed {
+  flex-basis: 56px;
+  width: 56px;
+}
+
+.sidebar-header {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 16px 13px;
+  border-bottom: 1px solid #ececec;
+}
+
+.sidebar.collapsed .sidebar-header {
+  justify-content: center;
+  padding: 14px 8px 13px;
+}
+
+.sidebar.collapsed .sidebar-header-icon {
+  display: none;
+}
+
+.sidebar-header-icon {
+  flex: 0 0 auto;
+  width: 21px;
+  height: 21px;
+  border-radius: 6px;
+  background: #1c1c1f;
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sidebar-header-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #111;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebar.collapsed .sidebar-header-title {
+  display: none;
+}
+
+.sidebar-collapse-icon {
+  flex: 0 0 auto;
+  border: none;
+  background: transparent;
+  color: #b3b3b3;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.sidebar-collapse-icon:hover {
+  background: #ececec;
+  color: #666;
+}
+
+.sidebar.collapsed .sidebar-collapse-icon {
+  transform: rotate(180deg);
+}
+
+.sidebar-nav {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+  padding: 8px 9px;
+  font-size: 13.5px;
+  color: #5a5a5e;
+  text-align: left;
+  font-family: inherit;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.sidebar.collapsed .nav-item {
+  justify-content: center;
+  padding: 9px 0;
+  gap: 0;
+}
+
+.nav-item:hover {
+  background: #eeeeef;
+  color: #222;
+}
+
+.nav-item.active {
+  background: #ffffff;
+  color: #1c1c1f;
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.07);
+}
+
+.nav-icon {
+  width: 18px;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: inherit;
+}
+
+.nav-label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebar.collapsed .nav-label {
+  display: none;
+}
+
+.sidebar-footer {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 12px;
+  border-top: 1px solid #ececec;
+}
+
+.sidebar.collapsed .sidebar-footer {
+  justify-content: center;
+  padding: 11px 0;
+}
+
+.sidebar.collapsed .sidebar-footer-text,
+.sidebar.collapsed .sidebar-footer-more {
+  display: none;
+}
+
+.sidebar-avatar {
+  flex: 0 0 auto;
+  width: 25px;
+  height: 25px;
+  border-radius: 50%;
+  background: #e2984c;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-transform: uppercase;
+}
+
+.sidebar-footer-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.sidebar-footer-name {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #222;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebar-footer-sub {
+  font-size: 10px;
+  color: #9a9a9a;
+}
+
+.sidebar-footer-more {
+  flex: 0 0 auto;
+  color: #bbb;
+  font-size: 13px;
+  line-height: 1;
+}
+
+/* --- content area --- */
+.content {
+  flex: 1 1 auto;
+  position: relative;
+  height: 100%;
+  /* Right gutter is wider than the left so the absolutely-positioned »
+     close button (top-right, see .close-btn) never sits on top of a view's
+     own header buttons (New Note, view toggles, etc). */
+  padding: 20px 46px 20px 24px;
+  overflow-y: auto;
+  color: #1c1c1c;
+}
+
+.close-btn {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  border: none;
+  background: transparent;
+  font-size: 16px;
+  line-height: 1;
+  color: #888;
+  cursor: pointer;
+  padding: 4px 7px;
+  border-radius: 4px;
+  z-index: 2;
+}
+
+.close-btn:hover {
+  background: rgba(0, 0, 0, 0.06);
+  color: #333;
+}
+
+.view.hidden {
+  display: none;
+}
+
+/* --- Today view: page bleeds to a light-gray backdrop (like the mock),
+   with a white card floating on top for the three sections. Scoped to
+   #view-today alone so every other tab keeps its plain white background. --- */
+#view-today {
+  background: #f4f4f5;
+  margin: -20px -46px -20px -24px; /* cancels .content's padding so the gray bleeds edge to edge */
+  padding: 20px 46px 20px 24px;    /* ...then re-applies it, keeping the » gutter clear */
+  min-height: calc(100% + 40px);
+}
+
+.today-header-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.today-header-left {
+  min-width: 0;
+}
+
+.today-header-right {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-top: 1px;
+}
+
+.today-new-note-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: none;
+  background: #fff;
+  color: #1c1c1f;
+  font-size: 11.5px;
+  font-weight: 600;
+  font-family: inherit;
+  padding: 6px 12px;
+  border-radius: 5px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.today-new-note-btn:hover {
+  background: #f8f7f7;
+}
+
+.date {
+  font-size: 11px;
+  color: #888;
+  margin-bottom: 2px;
+}
+
+.greeting {
+  font-size: 17px;
+  font-weight: 600;
+  margin: 0;
+  color: #111;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.today-card {
+  background: #fff;
+  border: 1px solid #ececec;
+  border-radius: 5px;
+  padding: 18px 20px 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.today-divider {
+  height: 1px;
+  background: #ececec;
+  margin: 16px 0;
+}
+
+.today-empty-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 0;
+  color: #9a9a9a;
+  font-size: 11px;
+}
+
+.today-empty-icon {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #f1f1f2;
+  color: #a3a3a3;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.today-empty-icon svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* Outstanding Items reuses the shared .checklist-item component (also used
+   in To-Do/Completed Tasks/Calendar), so these override its text size only
+   for rows inside Today's list specifically -- the other tabs' checklist
+   rows are untouched. */
+#outstandingList .label {
+  font-size: 12px;
+}
+
+#outstandingList .due-badge {
+  font-size: 9.5px;
+  padding: 1px 7px;
+}
+
+.view-header {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 4px 0 16px;
+  color: #111;
+}
+
+.view-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.view-header-row .view-header {
+  margin-bottom: 16px;
+}
+
+.save-folder-btn {
+  flex: 0 0 auto;
+  border: 1px solid #ddd;
+  background: #fafafa;
+  color: #333;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.save-folder-btn:hover {
+  background: #f0f0f0;
+  border-color: #ccc;
+}
+
+.section-heading {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #111;
+  margin: 0 0 8px;
+}
+
+.section-heading.secondary {
+  margin-top: 0; /* spacing between sections now comes from .today-divider */
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #e6432f;
+  flex: 0 0 auto;
+  display: inline-block;
+}
+
+.dot.hidden {
+  visibility: hidden;
+}
+
+.checklist {
+  list-style: none;
+  margin: 0 0 4px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.checklist-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 2px;
+  border-radius: 5px;
+}
+
+.checklist-item:hover {
+  background: #f6f6f6;
+}
+
+.checklist-item.dragging {
+  opacity: 0.35;
+}
+
+.drag-handle {
+  flex: 0 0 auto;
+  color: #ccc;
+  font-size: 13px;
+  line-height: 1;
+  cursor: grab;
+  padding: 0 1px;
+  user-select: none;
+}
+
+.drag-handle:hover {
+  color: #999;
+}
+
+.checklist-item .box {
+  width: 15px;
+  height: 15px;
+  border: 1.6px solid #333;
+  border-radius: 3px;
+  flex: 0 0 auto;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+}
+
+.checklist-item.done .box {
+  background: #1c1c1f;
+  border-color: #1c1c1f;
+}
+
+.checklist-item .box svg {
+  width: 10px;
+  height: 10px;
+  display: none;
+}
+
+.checklist-item.done .box svg {
+  display: block;
+}
+
+.checklist-item .label {
+  flex: 1 1 auto;
+  font-size: 13.5px;
+  color: #222;
+  cursor: pointer;
+  word-break: break-word;
+}
+
+.checklist-item.done .label {
+  color: #a3a3a3;
+  text-decoration: line-through;
+}
+
+.due-badge {
+  flex: 0 0 auto;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #7a5b12;
+  background: #fff2cc;
+  border: 1px solid #f0dfa0;
+  border-radius: 10px;
+  padding: 2px 8px;
+  white-space: nowrap;
+}
+
+.checklist-item.done .due-badge {
+  color: #bbb;
+  background: #f2f2f2;
+  border-color: #e6e6e6;
+}
+
+.due-badge.due-upcoming {
+  color: #1e7a3c;
+  background: #e6f6ea;
+  border-color: #b9e6c4;
+}
+
+.due-badge.due-passed {
+  color: #c23a28;
+  background: #fdeceb;
+  border-color: #f3bdb6;
+}
+
+.checklist-item .edit,
+.checklist-item .remove {
+  flex: 0 0 auto;
+  border: none;
+  background: transparent;
+  color: #bbb;
+  font-size: 13px;
+  cursor: pointer;
+  padding: 2px 5px;
+  border-radius: 4px;
+  /* Not just transparent: fully removed from the row's layout until hover,
+     so the (flex: 1) label pushes the due-date badge flush to the right
+     edge instead of leaving a gap where the invisible buttons would be. */
+  display: none;
+}
+
+.checklist-item:hover .edit,
+.checklist-item:hover .remove {
+  display: block;
+}
+
+.checklist-item .edit:hover {
+  background: #eee;
+  color: #444;
+}
+
+.checklist-item .remove:hover {
+  background: #eee;
+  color: #666;
+}
+
+/* --- inline task edit form: replaces a checklist row's normal contents
+   while editingTodoId matches it, mirroring the "Add a task" row's own
+   text-then-date/time-then-button layout for a consistent look. --- */
+.checklist-item.editing {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  padding: 8px 6px;
+  background: #fafafa;
+  cursor: default;
+}
+
+.todo-edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+.todo-edit-text {
+  width: 100%;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  background: #fff;
+  color: #222;
+  user-select: text;
+}
+
+.todo-edit-text:focus {
+  border-color: #1c1c1f;
+}
+
+.todo-edit-row2 {
+  display: flex;
+  gap: 6px;
+}
+
+.todo-edit-row2 input[type='date'],
+.todo-edit-row2 input[type='time'] {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 6px 7px;
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+  background: #fff;
+  color: #222;
+  cursor: pointer;
+}
+
+.todo-edit-row2 input[type='time'] {
+  flex: 0 0 auto;
+  width: 84px;
+}
+
+.todo-edit-row2 input:focus {
+  border-color: #1c1c1f;
+}
+
+.todo-edit-save,
+.todo-edit-cancel {
+  flex: 0 0 auto;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  padding: 6px 10px;
+}
+
+.todo-edit-save {
+  background: #1c1c1f;
+  color: #fff;
+}
+
+.todo-edit-save:hover {
+  background: #333;
+}
+
+.todo-edit-cancel {
+  background: transparent;
+  color: #999;
+  padding: 6px 8px;
+}
+
+.todo-edit-cancel:hover {
+  background: #eee;
+  color: #666;
+}
+
+.project-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.project-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 2px;
+  border-radius: 5px;
+  font-size: 13.5px;
+  color: #222;
+  cursor: pointer;
+}
+
+.project-item:hover {
+  background: #f6f6f6;
+}
+
+.project-item.dragging {
+  opacity: 0.35;
+}
+
+.project-item .folder-icon {
+  flex: 0 0 auto;
+}
+
+.project-item .label {
+  flex: 1 1 auto;
+  word-break: break-word;
+}
+
+.project-item .rename-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 1px solid #1c1c1f;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 13.5px;
+  font-family: inherit;
+  color: #222;
+  background: #fff;
+  outline: none;
+}
+
+.project-item .rename,
+.project-item .remove {
+  flex: 0 0 auto;
+  border: none;
+  background: transparent;
+  color: #bbb;
+  font-size: 13px;
+  cursor: pointer;
+  padding: 2px 5px;
+  border-radius: 4px;
+  opacity: 0;
+  transition: opacity 0.1s ease;
+}
+
+.project-item:hover .rename,
+.project-item:hover .remove {
+  opacity: 1;
+}
+
+.project-item .rename:hover {
+  background: #eee;
+  color: #444;
+}
+
+.project-item .remove:hover {
+  background: #eee;
+  color: #666;
+}
+
+.empty-hint {
+  font-size: 12.5px;
+  color: #aaa;
+  padding: 4px 2px 8px;
+}
+
+.empty-hint.hidden {
+  display: none;
+}
+
+/* --- "Notes Created" on the Today view: notes made today, in either
+   Quick Notes (via Save to Folder) or directly in Projects --- */
+.notes-created-list {
+  list-style: none;
+  margin: 0 0 4px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.notes-created-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border-radius: 10px;
+  background: #f4f4f5;
+  cursor: pointer;
+}
+
+.notes-created-item:hover {
+  background: #ececee;
+}
+
+.notes-created-item .icon {
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: #fff;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+.notes-created-item .info {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.notes-created-item .info .name {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #222;
+  word-break: break-word;
+}
+
+.notes-created-item .info .path {
+  font-size: 10px;
+  color: #999;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.notes-created-item .time {
+  flex: 0 0 auto;
+  font-size: 10px;
+  color: #aaa;
+}
+
+.see-all-btn {
+  display: inline-block;
+  border: none;
+  background: transparent;
+  color: #666;
+  font-size: 10.5px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  padding: 3px 2px 12px;
+}
+
+.see-all-btn:hover {
+  color: #1c1c1f;
+  text-decoration: underline;
+}
+
+.see-all-btn.hidden {
+  display: none;
+}
+
+.add-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.add-row input {
+  flex: 1 1 auto;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 7px 10px;
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  background: #fafafa;
+  color: #222;
+  user-select: text;
+}
+
+.add-row input:focus {
+  border-color: #1c1c1f;
+  background: #fff;
+}
+
+.add-row button {
+  border: none;
+  background: #1c1c1f;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 7px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.add-row button:hover {
+  background: #333;
+}
+
+.add-node-btn {
+  flex: 1 1 0;
+  text-align: center;
+}
+
+/* the To-Do List add-row stacks the task text above a due-by picker + Add button */
+.add-row-task {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.add-row-secondary {
+  display: flex;
+  gap: 8px;
+}
+
+.add-row-secondary select,
+.add-row-secondary input[type='date'],
+.add-row-secondary input[type='time'] {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 7px 8px;
+  font-size: 12.5px;
+  font-family: inherit;
+  outline: none;
+  background: #fafafa;
+  color: #222;
+  cursor: pointer;
+}
+
+.add-row-secondary input[type='time'] {
+  flex: 0 0 auto;
+  width: 92px;
+}
+
+.add-row-secondary select:focus,
+.add-row-secondary input[type='date']:focus,
+.add-row-secondary input[type='time']:focus {
+  border-color: #1c1c1f;
+  background: #fff;
+}
+
+.add-row-secondary button {
+  flex: 0 0 auto;
+}
+
+/* --- project breadcrumbs / nested folder & note browsing --- */
+.breadcrumbs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin: -6px 0 14px;
+  min-height: 20px;
+}
+
+.breadcrumbs .crumb {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 2px 5px;
+  border-radius: 4px;
+  font-size: 12.5px;
+  font-family: inherit;
+  color: #888;
+}
+
+.breadcrumbs .crumb:hover {
+  background: #f0f0f0;
+  color: #333;
+}
+
+.breadcrumbs .crumb.current {
+  color: #111;
+  font-weight: 600;
+  cursor: default;
+}
+
+.breadcrumbs .crumb.current:hover {
+  background: transparent;
+}
+
+.breadcrumbs .crumb-sep {
+  color: #ccc;
+  font-size: 12px;
+}
+
+#projectBrowser.hidden,
+.note-editor.hidden {
+  display: none;
+}
+
+.back-link {
+  border: none;
+  background: transparent;
+  color: #666;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 3px 6px 3px 2px;
+  margin: 0 0 10px -2px;
+  border-radius: 4px;
+}
+
+.back-link:hover {
+  background: #f0f0f0;
+  color: #222;
+}
+
+/* Title row for the Projects view: an optional back arrow sits to the left
+   of the "Projects" heading (shown only while a note is open). */
+.view-title-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.view-title-row .view-header {
+  margin: 4px 0 16px;
+}
+
+.back-arrow {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: #666;
+  cursor: pointer;
+  padding: 4px;
+  margin: 5px 0 0 -4px; /* vertically centers the arrow on the 20px heading text */
+  border-radius: 5px;
+}
+
+.back-arrow:hover {
+  background: #f0f0f0;
+  color: #222;
+}
+
+.back-arrow.hidden {
+  display: none;
+}
+
+.note-editor-header-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.note-editor-header-row .back-link {
+  flex: 0 0 auto;
+  margin: 0;
+}
+
+.note-editor-header-row .note-title-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-bottom: 0;
+  margin-left: 0;
+}
+
+.note-title-input {
+  display: block;
+  width: 100%;
+  font-size: 15px;
+  font-weight: 600;
+  font-family: inherit;
+  color: #111;
+  margin-bottom: 10px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  padding: 4px 6px;
+  margin-left: -6px;
+  background: transparent;
+  outline: none;
+}
+
+.note-title-input:hover {
+  border-color: #e5e5e5;
+  background: #fafafa;
+}
+
+.note-title-input:focus {
+  border-color: #1c1c1f;
+  background: #fff;
+}
+
+.note-title-input::placeholder {
+  color: #b3b3b3;
+  font-weight: 500;
+}
+
+.textarea-wrap {
+  position: relative;
+}
+
+.copy-btn {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  border: 1px solid #ddd;
+  background: rgba(255, 255, 255, 0.92);
+  color: #555;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: inherit;
+  padding: 4px 9px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.copy-btn:hover {
+  background: #fff;
+  border-color: #bbb;
+  color: #222;
+}
+
+.copy-btn.copied {
+  color: #1c1c1f;
+  border-color: #1c1c1f;
+  background: #fff;
+}
+
+.transcribe-btn {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  max-width: calc(100% - 90px); /* leave room for the Copy button on the right */
+  border: 1px solid #ddd;
+  background: rgba(255, 255, 255, 0.92);
+  color: #555;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: inherit;
+  padding: 4px 9px;
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.transcribe-btn:hover {
+  background: #fff;
+  border-color: #bbb;
+  color: #222;
+}
+
+.transcribe-btn.recording {
+  background: #fdeceb;
+  border-color: #e6432f;
+  color: #c23a28;
+  animation: transcribe-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes transcribe-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(230, 67, 47, 0.35);
+  }
+  50% {
+    box-shadow: 0 0 0 5px rgba(230, 67, 47, 0);
+  }
+}
+
+#noteArea,
+#projectNoteArea {
+  width: 100%;
+  height: 340px;
+  border: 1px solid #e8e8e8;
+  border-radius: 8px;
+  outline: none;
+  resize: none;
+  padding: 12px 12px 34px;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: #222;
+  background: #fafafa;
+  user-select: text;
+  font-family: inherit;
+}
+
+#noteArea:focus,
+#projectNoteArea:focus {
+  border-color: #1c1c1f;
+  background: #fff;
+}
+
+#noteArea::placeholder,
+#projectNoteArea::placeholder {
+  color: #b3b3b3;
+}
+
+.notes-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 2px 0;
+  font-size: 10.5px;
+  color: #999;
+}
+
+#status {
+  font-size: 11px;
+  font-weight: 600;
+  color: #999;
+  flex: 0 0 auto;
+}
+
+#status.unsaved {
+  color: #b45a2c;
+}
+
+/* --- "Save to Folder" picker: a full-panel takeover for browsing the
+   Projects tree (any depth) and dropping the current quick note into any
+   folder in it, creating new folders inline along the way. --- */
+.modal-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  padding: 16px 20px 20px;
+}
+
+.modal-overlay.hidden {
+  display: none;
+}
+
+.modal-header {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 16px;
+  font-weight: 600;
+  color: #111;
+  margin-bottom: 10px;
+}
+
+.modal-close {
+  border: none;
+  background: transparent;
+  color: #888;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 7px;
+  border-radius: 4px;
+}
+
+.modal-close:hover {
+  background: rgba(0, 0, 0, 0.06);
+  color: #333;
+}
+
+.modal-overlay .breadcrumbs {
+  flex: 0 0 auto;
+  margin: 0 0 10px;
+}
+
+.modal-overlay .project-list {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  min-height: 40px;
+}
+
+.modal-overlay .empty-hint {
+  flex: 0 0 auto;
+}
+
+.modal-overlay #saveModalNewFolderRow {
+  flex: 0 0 auto;
+  margin-top: 10px;
+}
+
+.modal-footer {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #eee;
+}
+
+.modal-footer input {
+  flex: 1 1 auto;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 7px 10px;
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  background: #fafafa;
+  color: #222;
+  user-select: text;
+}
+
+.modal-footer input:focus {
+  border-color: #1c1c1f;
+  background: #fff;
+}
+
+.modal-footer button {
+  flex: 0 0 auto;
+  border: none;
+  background: #1c1c1f;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 7px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.modal-footer button:hover {
+  background: #333;
+}
+
+/* --- To-Do: List / Calendar view toggle --- */
+.view-toggle {
+  flex: 0 0 auto;
+  display: flex;
+  border: 1px solid #ddd;
+  border-radius: 7px;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+
+.view-toggle-btn {
+  border: none;
+  background: #fafafa;
+  color: #666;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+
+.view-toggle-btn + .view-toggle-btn {
+  border-left: 1px solid #ddd;
+}
+
+.view-toggle-btn.active {
+  background: #1c1c1f;
+  color: #fff;
+}
+
+.view-toggle-btn:not(.active):hover {
+  background: #f0f0f0;
+}
+
+#todoListView.hidden,
+#todoCalendarView.hidden,
+#todoMainView.hidden,
+.completed-tasks-view.hidden {
+  display: none;
+}
+
+.view-completed-link {
+  display: block;
+  border: none;
+  background: transparent;
+  color: #e20808;
+  font-size: 11.5px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  padding: 3px 2px;
+  margin-top: 12px;
+}
+
+.view-completed-link:hover {
+  color: #1c1c1f;
+  text-decoration: underline;
+}
+
+.completed-tasks-view .view-header {
+  margin-top: 2px;
+}
+
+/* --- Calendar view: toolbar --- */
+.calendar-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.calendar-nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.calendar-nav button {
+  border: 1px solid #ddd;
+  background: #fafafa;
+  color: #444;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  padding: 4px 9px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.calendar-nav button:hover {
+  background: #f0f0f0;
+  border-color: #ccc;
+}
+
+.calendar-granularity {
+  display: flex;
+  border: 1px solid #ddd;
+  border-radius: 7px;
+  overflow: hidden;
+}
+
+.granularity-btn {
+  border: none;
+  background: #fafafa;
+  color: #666;
+  font-size: 11.5px;
+  font-weight: 600;
+  font-family: inherit;
+  padding: 5px 9px;
+  cursor: pointer;
+}
+
+.granularity-btn + .granularity-btn {
+  border-left: 1px solid #ddd;
+}
+
+.granularity-btn.active {
+  background: #1c1c1f;
+  color: #fff;
+}
+
+.granularity-btn:not(.active):hover {
+  background: #f0f0f0;
+}
+
+.calendar-label {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #111;
+  margin-bottom: 10px;
+}
+
+/* --- Calendar view: month grid --- */
+.calendar-month-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+.calendar-weekday-head {
+  font-size: 9.5px;
+  font-weight: 700;
+  color: #aaa;
+  text-align: center;
+  padding-bottom: 3px;
+  text-transform: uppercase;
+}
+
+.calendar-day-cell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-height: 40px;
+  border: none;
+  border-radius: 5px;
+  background: #fafafa;
+  padding: 3px 2px 4px;
+  cursor: pointer;
+  font-family: inherit;
+  overflow: hidden;
+}
+
+.calendar-day-cell:hover {
+  background: #eee;
+}
+
+.calendar-day-cell.other-month {
+  background: transparent;
+  opacity: 0.4;
+}
+
+.calendar-day-cell.today .calendar-day-number {
+  background: #1c1c1f;
+  color: #fff;
+  border-radius: 50%;
+}
+
+.calendar-day-number {
+  font-size: 10.5px;
+  color: #333;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+
+.calendar-day-dots {
+  display: flex;
+  gap: 2px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.calendar-day-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+
+.calendar-day-dot.due-upcoming {
+  background: #2fa15a;
+}
+
+.calendar-day-dot.due-passed {
+  background: #e6432f;
+}
+
+.calendar-day-dot.done {
+  background: #ccc;
+}
+
+.calendar-day-more {
+  font-size: 8px;
+  color: #999;
+}
+
+/* --- Calendar view: week grid (agenda per day) --- */
+.calendar-week-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.calendar-week-day {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 60px;
+  max-height: 220px;
+  overflow-y: auto;
+  border-radius: 5px;
+  background: #fafafa;
+  padding: 4px 3px;
+}
+
+.calendar-week-day.today {
+  background: #eef3ff;
+}
+
+.calendar-week-day-head {
+  font-size: 9px;
+  font-weight: 700;
+  color: #888;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.calendar-week-day.today .calendar-week-day-head {
+  color: #1c1c1f;
+}
+
+.calendar-task-pill {
+  font-size: 9px;
+  line-height: 1.3;
+  padding: 2px 4px;
+  border-radius: 4px;
+  cursor: pointer;
+  word-break: break-word;
+  text-align: left;
+}
+
+.calendar-task-pill.due-upcoming {
+  background: #e6f6ea;
+  color: #1e7a3c;
+}
+
+.calendar-task-pill.due-passed {
+  background: #fdeceb;
+  color: #c23a28;
+}
+
+.calendar-task-pill.done {
+  background: #f2f2f2;
+  color: #aaa;
+  text-decoration: line-through;
+}
+
+/* --- Calendar view: day agenda --- */
+.calendar-day-agenda {
+  display: flex;
+  flex-direction: column;
+}
+
+.calendar-agenda-empty {
+  font-size: 12.5px;
+  color: #aaa;
+  padding: 10px 2px;
+}
